@@ -4,6 +4,8 @@
 
 ### Enhancements
 
+- Added recent searches to the search field
+
 ### Fixes
 
 - Fixed markdown code styles [#1702](https://github.com/Automattic/simplenote-electron/pull/1702)
