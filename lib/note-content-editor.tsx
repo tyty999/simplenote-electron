@@ -187,7 +187,11 @@ class NoteContentEditor extends Component<Props> {
 
   editorReady: EditorDidMount = (editor, monaco) => {
     this.editor = editor;
+
+    window.editor = editor;
     this.monaco = monaco;
+
+    window.monaco = monaco;
 
     const titleDecoration = (line: number) => ({
       range: new monaco.Range(line, 1, line, 1),
@@ -325,6 +329,39 @@ class NoteContentEditor extends Component<Props> {
           ),
         });
       }
+    });
+
+    editor.addAction({
+      id: 'SelectAll',
+      label: 'Select All',
+      contextMenuGroupId: 'z',
+      run: () => {
+        editor.setSelection(editor.getModel().getFullModelRange());
+      },
+    });
+    editor.addAction({
+      id: 'undo_model',
+      label: 'Undo',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_Z],
+      contextMenuGroupId: 'undoredo',
+      contextMenuOrder: 0,
+      // precondition: 'undo',
+      run: () => {
+        editor.trigger('', 'undo');
+      },
+    });
+    editor.addAction({
+      id: 'redo_model',
+      label: 'Redo',
+      keybindings: [
+        monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KEY_Z,
+      ],
+      contextMenuGroupId: 'undoredo',
+      contextMenuOrder: 0,
+      // precondition: 'redo',
+      run: () => {
+        editor.trigger('', 'redo');
+      },
     });
   };
 
@@ -471,7 +508,6 @@ class NoteContentEditor extends Component<Props> {
               autoSurround: 'never',
               automaticLayout: true,
               codeLens: false,
-              contextmenu: false,
               folding: false,
               fontFamily:
                 '"Simplenote Tasks", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen-Sans", "Ubuntu", "Cantarell", "Helvetica Neue", sans-serif',
