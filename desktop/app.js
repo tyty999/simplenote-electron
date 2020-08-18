@@ -2,6 +2,7 @@
 
 const {
   app,
+  dialog,
   BrowserWindow,
   ipcMain,
   shell,
@@ -145,8 +146,24 @@ module.exports = function main() {
 
     // Fullscreen should be disabled on launch
     if (platform.isOSX()) {
-      mainWindow.on('close', () => {
+      mainWindow.on('close', (event) => {
         mainWindow.setFullScreen(false);
+
+        event.preventDefault();
+        dialog.showMessageBox(
+          mainWindow,
+          {
+            message: 'Close Simplenote? All changes are not currently saved.',
+            buttons: ['No', 'Yes'],
+          },
+          (res) => {
+            mainWindow.destroy();
+            alert(res);
+            if (res === 0) {
+              mainWindow.destroy();
+            }
+          }
+        );
       });
     } else {
       mainWindow.setFullScreen(false);
