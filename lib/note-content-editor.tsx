@@ -5,7 +5,16 @@ import Monaco, {
   EditorDidMount,
   EditorWillMount,
 } from 'react-monaco-editor';
-import { editor as Editor, Selection, SelectionDirection } from 'monaco-editor';
+import {
+  editor as Editor,
+  languages,
+  Selection,
+  SelectionDirection,
+} from 'monaco-editor';
+
+import { searchNotes, tagsFromSearch } from './search';
+import { noteTitleAndPreview } from './utils/note-utils';
+import { getTerms } from './utils/filter-notes';
 
 import actions from './state/actions';
 import * as selectors from './state/selectors';
@@ -147,6 +156,72 @@ class NoteContentEditor extends Component<Props> {
     }
   }
 
+  completionProvider: languages.CompletionItemProvider = {
+    provideCompletionItems(model, position, context, token) {
+      const line = model.getLineContent(position.lineNumber);
+      if (!line.includes('[')) {
+        return null;
+      }
+
+      const precedingOpener = line.lastIndexOf('[', position.column);
+      const precedingCloser = line.lastIndexOf(']', position.column);
+      const precedingBracket =
+        precedingOpener >= 0 && precedingCloser < precedingOpener
+          ? precedingOpener
+          : -1;
+
+      const soFar =
+        precedingBracket >= 0
+          ? line.slice(precedingBracket + 1, position.column)
+          : '';
+
+      const notes = searchNotes(
+        {
+          searchTerms: getTerms(soFar),
+          openedTag: null,
+          showTrash: false,
+          searchTags: tagsFromSearch(soFar),
+        },
+        5
+      ).map(([noteId, note]) => ({
+        noteId,
+        ...noteTitleAndPreview(note),
+      }));
+
+      const additionalTextEdits =
+        precedingBracket >= 0
+          ? [
+              {
+                text: '',
+                range: {
+                  startLineNumber: position.lineNumber,
+                  startColumn: precedingBracket,
+                  endLineNumber: position.lineNumber,
+                  endColumn: position.column,
+                },
+              },
+            ]
+          : [];
+
+      return {
+        suggestions: notes.map((note) => ({
+          additionalTextEdits,
+          kind: languages.CompletionItemKind.File,
+          label: note.title,
+          detail: 'Another note',
+          documentation: note.preview,
+          insertText: `[${note.title}](simplenote://note/${note.noteId})`,
+          range: {
+            startLineNumber: position.lineNumber,
+            startColumn: position.column,
+            endLineNumber: position.lineNumber,
+            endColumn: position.column,
+          },
+        })),
+      };
+    },
+  };
+
   handleKeys = (event: KeyboardEvent) => {
     if (!this.props.keyboardShortcuts) {
       return;
@@ -199,6 +274,11 @@ class NoteContentEditor extends Component<Props> {
   editorReady: EditorDidMount = (editor, monaco) => {
     this.editor = editor;
     this.monaco = monaco;
+
+    monaco.languages.registerCompletionItemProvider(
+      'plaintext',
+      this.completionProvider
+    );
 
     window.electron?.receive('editorCommand', (command) => {
       switch (command.action) {
