@@ -60,6 +60,8 @@ type OwnState = {
   overTodo: boolean;
 };
 
+let hasCompletionProvider = false;
+
 class NoteContentEditor extends Component<Props> {
   bootTimer: ReturnType<typeof setTimeout> | null = null;
   editor: Editor.IStandaloneCodeEditor | null = null;
@@ -185,6 +187,8 @@ class NoteContentEditor extends Component<Props> {
         5
       ).map(([noteId, note]) => ({
         noteId,
+        content: note.content,
+        isPinned: note.systemTags.includes('pinned'),
         ...noteTitleAndPreview(note),
       }));
 
@@ -204,13 +208,16 @@ class NoteContentEditor extends Component<Props> {
           : [];
 
       return {
-        suggestions: notes.map((note) => ({
+        suggestions: notes.map((note, index) => ({
           additionalTextEdits,
-          kind: languages.CompletionItemKind.File,
+          kind: note.isPinned
+            ? languages.CompletionItemKind.Snippet
+            : languages.CompletionItemKind.File,
           label: note.title,
-          detail: 'Another note',
-          documentation: note.preview,
+          // detail: note.preview,
+          documentation: note.content,
           insertText: `[${note.title}](simplenote://note/${note.noteId})`,
+          sortText: index.toString(),
           range: {
             startLineNumber: position.lineNumber,
             startColumn: position.column,
@@ -275,10 +282,13 @@ class NoteContentEditor extends Component<Props> {
     this.editor = editor;
     this.monaco = monaco;
 
-    monaco.languages.registerCompletionItemProvider(
-      'plaintext',
-      this.completionProvider
-    );
+    if (!hasCompletionProvider) {
+      hasCompletionProvider = true;
+      monaco.languages.registerCompletionItemProvider(
+        'plaintext',
+        this.completionProvider
+      );
+    }
 
     window.electron?.receive('editorCommand', (command) => {
       switch (command.action) {
